@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'secure_key_method_channel.dart';
@@ -23,19 +25,39 @@ abstract class SecureKeyPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<void> createPairKey() {
-    throw UnimplementedError('createPairKey() has not been implemented.');
+  Future<bool> initialize(int size) {
+    throw UnimplementedError('initialize() has not been implemented.');
   }
 
-  Future<void> getPublicKey() {
+  Future<String?> getPublicKey() {
     throw UnimplementedError('getPublicKey() has not been implemented.');
   }
 
-  Future<void> getPublicKeyData() {
-    throw UnimplementedError('getPublicKeyData() has not been implemented.');
+  Future<Uint8List?> getPublicKeyBytes() {
+    throw UnimplementedError('getPublicKeybytes() has not been implemented.');
   }
 
-  Future<void> getPrivatekey() async {
-    throw UnimplementedError('getPrivatekey() has not been implemented.');
+  Future<bool> createPairKey() {
+    throw UnimplementedError('createPairKey() has not been implemented.');
+  }
+
+  Future<bool> deleteKey() async {
+    throw UnimplementedError('deleteKey() has not been implemented.');
+  }
+
+  Future<String?> decryptWithRsa(String input) {
+    throw UnimplementedError('decryptWithRsa() has not been implemented.');
+  }
+
+  Future<String?> encryptWithRsa(String input) {
+    throw UnimplementedError('encryptWithRsa() has not been implemented.');
+  }
+
+  Future<String?> signSha256(String input) {
+    throw UnimplementedError('signSha256() has not been implemented.');
+  }
+
+  Future<Uint8List?> signSha256Bytes(String input) {
+    throw UnimplementedError('signSha256Bytes() has not been implemented.');
   }
 }

@@ -1,19 +1,2 @@
-import 'secure_key_platform_interface.dart';
-
-class SecureKey {
-  Future<void> createPairKey() async {
-    return await SecureKeyPlatform.instance.createPairKey();
-  }
-
-  Future<void> getPublicKey() async {
-    return await SecureKeyPlatform.instance.getPublicKey();
-  }
-
-  Future<void> getPublicKeyData() async {
-    return await SecureKeyPlatform.instance.getPublicKeyData();
-  }
-
-  Future<void> getPrivatekey() async {
-    return await SecureKeyPlatform.instance.getPrivatekey();
-  }
-}
+export 'package:secure_key/secure_key_worker.dart';
+export 'package:secure_key/exception/plugin_exception.dart';

@@ -3,10 +3,7 @@ import UIKit
 import AudioToolbox
 
 public class SecureKeyPlugin: NSObject, FlutterPlugin {
-    var vibration: Int = 1000
-
-    let controller = AppKeyPair()
-    var publicKey:SecKey?
+    var controller:AppKeyPair?
     
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: "secure_key", binaryMessenger: registrar.messenger())
@@ -15,212 +12,219 @@ public class SecureKeyPlugin: NSObject, FlutterPlugin {
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    // result("iOS " + UIDevice.current.systemVersion)
-//      guard call.method=="getBatteryLevel" else{
-//          result(FlutterMethodNotImplemented)
-//          return
-//      }
-//      self.getBatteryLevel(result: result)
-      if call.method == "createPairKey"{
-          createPairKey(result: result)
+     
+      if call.method == "initialize"{
+          initialize(call:call,result: result)
       }else if call.method == "getPublicKey"{
           getPublicKey(result: result)
-      }else if call.method == "getPublicKeyData"{
-          getPublicKeyData(result: result)
-      }else if call.method == "getPrivatekey"{
-          getPrivatekey(result: result)
-      }else{
+      }else if call.method == "createPairKey"{
+          createPairKey(result: result)
+      }else if call.method == "deleteKey"{
+          deleteKey(result: result)
+      }else if call.method == "signSha256"{
+          signSha256(call: call, result: result)
+      }else if call.method == "getPublicKeyBytes"{
+          getPublicKeyBytes(result: result)
+      }else if call.method == "signSha256Bytes"{
+          signSha256Bytes(call: call, result: result)
+      }else if call.method == "encryptWithRsa"{
+          encryptWithRsa(call: call, result: result)
+      }else if call.method == "decryptWithRsa" {
+          decryptWithRsa(call: call, result: result)
+      } else{
           result(FlutterMethodNotImplemented)
       }
   }
     
-
-    private func createPairKey(result: FlutterResult){
-        print("\n-----CREATE-----\n")
-        do{
-           try controller.createRsaKeyPair(result: result)
-           print("Success created key pair")
-        }catch KeyPairError.badCreate{
-            result(FlutterError(code: "BAD_CREATE", message: "Key pair created exception", details: nil))
+    private func initialize(call:FlutterMethodCall,result: @escaping FlutterResult){
+        if controller != nil {
+          result(true)
+          return;
         }
-        catch{
-            result(FlutterError(code: "UNKNOWN", message: "Unknown error", details: nil))
+        if let args = call.arguments as? Dictionary<String, Any>,
+           let size = args["size"] as? Int
+        {
+            controller = AppKeyPair(size: size)
+            result(true)
+        }else{
+            result(FlutterError(code: String(describing: KeyPairError.BAD_ARGS),message: "Size argument not found",details: nil))
         }
-        print("\n-----------------------------\n")
     }
     
-    private func getPublicKey(result: FlutterResult){
-        print("\n-----GET PUBLIC KEY-----\n")
+    private func getPublicKey(result:@escaping FlutterResult){
+        guard controller != nil else{
+            result(FlutterError(code: String(describing: KeyPairError.NOT_INIT), message: "Plugin not init", details: nil))
+          return
+        }
         do{
-            try publicKey = controller.getPublicKey(result: result)
-        }catch KeyPairError.notFoundPublicKey{
+            let publicKey:String? = try controller!.getPublicKey()
+            
+            guard !(publicKey ?? "").isEmpty else{
+                result(FlutterError(code: String(describing: KeyPairError.NOT_FOUND) ,message: "Public key not found",details: nil))
+                return
+            }
+            result(publicKey)
+        }catch
+            KeyPairError.NOT_FOUND{
             result(FlutterError(code: "PUBLIC_NOT_FOUND", message: "Public key not founded", details: nil))
         }
         catch{
             result(FlutterError(code: "UNKNOWN", message: "Unknown error", details: nil))
         }
-        print("\n-----------------------------\n")
-    }
+       }
     
-    private func getPrivatekey(result:FlutterResult){
-        print("\n-----GET PRIVATE KEY-----\n")
-        do{
-           try controller.getPrivatekey()
-        }catch KeyPairError.notFoundPrivateKey{
-            print("<<<<<<<<<<<<<>>>>>>>>>>>>>")
-            print("        <<ERROR>>         ")
-            print(" <<Private key not found>>")
-            print("<<<<<<<<<<<<<>>>>>>>>>>>>>")
-        }catch {
-            print("<<<<<<<<<<<<<>>>>>>>>>>>>>")
-            print("        <<ERROR>>         ")
-            print("       <<Unknown>>        ")
-            print("<<<<<<<<<<<<<>>>>>>>>>>>>>")
+    private func getPublicKeyBytes(result:@escaping FlutterResult){
+        guard controller != nil else{
+            result(FlutterError(code: String(describing: KeyPairError.NOT_INIT), message: "Plugin not init", details: nil))
+          return
         }
-        print("\n-----------------------------\n")
-    }
-    
-    private func getPublicKeyData(result: FlutterResult){
-        print("\n-----GET PUBLIC KEY DATA-----\n")
         do{
-            if publicKey != nil{
-                var error: Unmanaged<CFError>?
-                guard let data = SecKeyCopyExternalRepresentation(publicKey!, &error) as CFData? else {
-                    print("PUBLIC DATA ERROR")
-                    throw error!.takeRetainedValue() as Error
-                    
-                }
-                print("RAW PUBLIC KEY")
-                print(data)
-                result(data)
-                
-            }
-            if controller.privateKey != nil{
-                var error: Unmanaged<CFError>?
-                guard let data = SecKeyCopyExternalRepresentation(controller.privateKey!, &error) as CFData? else {
-                    print("PRIVATE DATA ERROR")
-                    throw error!.takeRetainedValue() as Error
-                    
-                }
-                print("RAW PRIVATE KEY")
-                print(data)
-                result(data)
-            }
+            let publicKey:FlutterStandardTypedData = try controller!.getPublicKeyBytes()
+            result(publicKey)
+        }
+//        catch
+//            KeyPairError.NOT_FOUND{
+//            result(FlutterError(code: "PUBLIC_NOT_FOUND", message: "Public key not founded", details: nil))
+//        }
+        catch{
+            result(nil)
+//            result(FlutterError(code: "UNKNOWN", message: "Unknown error", details: nil))
+        }
+        }
+
+    private func createPairKey(result:@escaping FlutterResult){
+        guard controller != nil else{
+            result(FlutterError(code: String(describing: KeyPairError.NOT_INIT), message: "Plugin not init", details: nil))
+          return
+        }
+        do{
+            let created:Bool = try controller!.createRsaKeyPair()
+            result(created)
+        }catch KeyPairError.CREATE_FAIL{
+            result(FlutterError(code: String(describing: KeyPairError.CREATE_FAIL), message: "Key pair created fail", details: nil))
+        }
+        catch{
+            result(FlutterError(code: String(describing: KeyPairError.UNKNOWN), message: "Unknown error", details: nil))
+        }
+      }
+    
+    private func deleteKey(result:@escaping FlutterResult) {
+        guard controller != nil else{
+            result(FlutterError(code: String(describing: KeyPairError.NOT_INIT), message: "Plugin not init", details: nil))
+          return
+        }
+        do{
+          let deleted:Bool = try controller!.deleteKey()
+          result(deleted)
+        }catch KeyPairError.REMOVE_FAIL{
+            result(FlutterError(code: String(describing: KeyPairError.REMOVE_FAIL), message: "Delete key fail", details: nil))
         }catch{
-            result(FlutterError(code: "UNKNOWN", message: "Unknown error", details: nil))
+            result(FlutterError(code: String(describing: KeyPairError.UNKNOWN), message: "Unknown error", details: nil))
         }
-        print("\n-----------------------------\n")
     }
     
-//    private func getBatteryLevel(result: FlutterResult){
-//        do{
-//            let appBundle: String =  Bundle.main.bundleIdentifier!
-//            let tag = appBundle.data(using: .utf8)!
-//            print("TAG")
-//            print(tag)
-//
-//            let access = SecAccessControlCreateWithFlags(
-//                kCFAllocatorDefault,
-//                kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-//                .privateKeyUsage,
-//                nil)!
-//
-//
-//
-//            let attributes: NSDictionary = [
-//                kSecAttrKeyType: kSecAttrKeyTypeRSA,
-//                kSecAttrKeySizeInBits: 4096,
-//                kSecPublicKeyAttrs:[
-//                    kSecAttrIsPermanent: true,
-//                    kSecAttrApplicationTag: tag,
-//                ],
-//                kSecPrivateKeyAttrs: [
-//                    kSecAttrIsPermanent: true,
-//                    kSecAttrApplicationTag: tag,
-//                ]
-//            ]
-//
-//
-//
-//            var error: Unmanaged<CFError>?
-//            guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
-//                print("Error create keys")
-//                print(error!.takeRetainedValue())
-//                throw error!.takeRetainedValue() as Error
-//            }
-//
-//            let publicKey = SecKeyCopyPublicKey(privateKey)!
-//
-//            let key = publicKey
-//            guard let data = SecKeyCopyExternalRepresentation(key, &error) as CFData? else {
-//                throw error!.takeRetainedValue() as Error
-//            }
-//
-//
-//            print("Private")
-//            print(privateKey.self)
-//
-//            print("Public")
-//            print(publicKey)
-//            print("Real Public Key")
-//            print(data)
-//
-//
-//
-//            let string = "Hello, world!"
-//            let stringSha256 = string.sha256()
-//            let cfData = stringSha256.data(using: .utf8)! as CFData
-//
-//            print("CFdata")
-//            print(cfData)
-//
-//            let algorithm: SecKeyAlgorithm = .rsaSignatureMessagePSSSHA256
-//
-//
-//
-//           print("----")
-//            print(algorithm)
-//            guard SecKeyIsAlgorithmSupported(privateKey, .sign, algorithm) else {
-//                print("AlgorithmSupported")
-//                print("false")
-//                return
-//            }
-//
-//            guard let signature = SecKeyCreateSignature(privateKey,
-//                                                        algorithm,
-//                                                        cfData as CFData,
-//                                                        &error) as Data? else {
-//                print("SG ERROR")
-//                print(error!.takeRetainedValue())
-//                                                            throw error!.takeRetainedValue() as Error
-//            }
-//
-//
-//            print("Signature")
-//            print(signature)
-//
-//
-//            guard SecKeyIsAlgorithmSupported(publicKey, .verify, algorithm) else {
-//                throw error!.takeRetainedValue() as Error
-//            }
-//
-//
-//            guard SecKeyVerifySignature(publicKey,
-//                                        algorithm,
-//                                        cfData as CFData,
-//                                        signature as CFData,
-//                                        &error) else {
-//                print("Signature error")
-//                print(error!.takeRetainedValue())
-//                throw error!.takeRetainedValue() as Error
-//            }
-//            print("success")
-//
-//
-//
-//            result(100)
-//
-//        }catch{}
-//
-//    }
+    private func signSha256(call:FlutterMethodCall,result: @escaping FlutterResult){
+        guard controller != nil else{
+            result(FlutterError(code: String(describing: KeyPairError.NOT_INIT), message: "Plugin not init", details: nil))
+          return
+        }
+        if let args = call.arguments as? Dictionary<String, Any>,
+           let input = args["inputSha256"] as? String
+        {
+            do{
+                let signature:String? = try controller!.signSha256(input: input)
+                guard signature != nil else{
+                    result(FlutterError(code: String(describing: KeyPairError.SIGNATURE_FAIL), message: "Signature not founded", details:nil))
+                    return
+                }
+                result(signature)
+            }catch KeyPairError.SIGNATURE_FAIL{
+                result(FlutterError(code: String(describing: KeyPairError.SIGNATURE_FAIL), message: "Signature not founded", details:nil))
+            }catch{
+                result(FlutterError(code: String(describing: KeyPairError.UNKNOWN), message: "Unknown error", details: nil))
+            }
+           
+        }else{
+            result(FlutterError(code: String(describing: KeyPairError.BAD_ARGS),message: "Input argument not found",details: nil))
+        }
+    }
+    
+    private func encryptWithRsa(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard controller != nil else {
+            result(FlutterError(code: String(describing: KeyPairError.NOT_INIT), message: "Plugin not init", details: nil))
+          return
+        }
+        if let args = call.arguments as? Dictionary<String, Any>,
+           let input = args["encryptInput"] as? String
+        {
+            do{
+                let encryptedData:String? = try controller!.encryptWithRsa(plainText: input)
+                result(encryptedData)
+            }catch KeyPairError.ALGORITM_NOT_SUPPORTED {
+                result(FlutterError(code: String(describing: KeyPairError.ALGORITM_NOT_SUPPORTED), message: "Algoritm support error", details: nil))
+            }catch KeyPairError.NOT_FOUND{
+                result(FlutterError(code: String(describing: KeyPairError.NOT_FOUND), message: "Public key not found", details: nil))
+            }catch KeyPairError.ENCRYPT_ERROR {
+                result(FlutterError(code: String(describing: KeyPairError.ENCRYPT_ERROR), message: "Encrypt failed", details: nil))
+            }catch KeyPairError.INPUT_NOT_FOUND {
+                result(FlutterError(code: String(describing: KeyPairError.INPUT_NOT_FOUND), message: "Encrypt failed, input nil", details: nil))
+            }catch {
+                result(FlutterError(code: String(describing: KeyPairError.ENCRYPT_ERROR), message: "Encryption failed, Error occurred: \(error)", details: nil))
+            }
+           
+        }else{
+            result(FlutterError(code: String(describing: KeyPairError.BAD_ARGS),message: "Input argument not found",details: nil))
+        }
+    }
+    
+    private func decryptWithRsa(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard controller != nil else {
+            result(FlutterError(code: String(describing: KeyPairError.NOT_INIT), message: "Plugin not init", details: nil))
+          return
+        }
+        if let args = call.arguments as? Dictionary<String, Any>,
+           let input = args["decryptInput"] as? String
+        {
+            do{
+                let decryptedData:String? = try controller!.decryptWithRsa(cipherData: input)
+                result(decryptedData)
+            }catch KeyPairError.ALGORITM_NOT_SUPPORTED {
+                result(FlutterError(code: String(describing: KeyPairError.ALGORITM_NOT_SUPPORTED), message: "Algoritm support error", details: nil))
+            }catch KeyPairError.NOT_FOUND{
+                result(FlutterError(code: String(describing: KeyPairError.NOT_FOUND), message: "Private key not found", details: nil))
+            }catch KeyPairError.DECRYPT_ERROR {
+                result(FlutterError(code: String(describing: KeyPairError.DECRYPT_ERROR), message: "Decrypt failed", details: nil))
+            }catch {
+                result(FlutterError(code: String(describing: KeyPairError.DECRYPT_ERROR), message: "Encryption failed, Error occurred: \(error)", details: nil))
+            }
+           
+        }else{
+            result(FlutterError(code: String(describing: KeyPairError.BAD_ARGS),message: "Input argument not found",details: nil))
+        }
+    }
+    
+    
+    
+    private func signSha256Bytes(call:FlutterMethodCall,result: @escaping FlutterResult){
+        guard controller != nil else{
+            result(FlutterError(code: String(describing: KeyPairError.NOT_INIT), message: "Plugin not init", details: nil))
+          return
+        }
+        if let args = call.arguments as? Dictionary<String, Any>,
+           let input = args["inputSha256"] as? String
+        {
+            do{
+                let signature:FlutterStandardTypedData? = try controller!.signSha256Bytes(input: input)
+                result(signature)
+            }catch KeyPairError.SIGNATURE_FAIL{
+                result(FlutterError(code: String(describing: KeyPairError.SIGNATURE_FAIL), message: "Signature not founded", details:nil))
+            }catch{
+                result(FlutterError(code: String(describing: KeyPairError.UNKNOWN), message: "Unknown error", details: nil))
+            }
+           
+        }else{
+            result(FlutterError(code: String(describing: KeyPairError.BAD_ARGS),message: "Input argument not found",details: nil))
+        }
+    }
+    
 }
