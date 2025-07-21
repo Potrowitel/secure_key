@@ -23,6 +23,7 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion 31
+    namespace = "kg.storekey.secure_key"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -30,7 +31,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 23
+        minSdkVersion flutter.minSdkVersion
     }
 }
 
